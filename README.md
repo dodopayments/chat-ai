@@ -1,36 +1,146 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Chat AI
+
+A full-stack AI chat application with multi-model support and credit-based billing.
+Users subscribe to a monthly plan, receive a token allowance, and spend tokens as they chat.
+Built as a reference implementation for integrating Dodo Payments usage-based billing into a Next.js app.
+
+## What it does
+
+- Sign up / sign in with email and password
+- Choose from four AI models in a dropdown and chat with streaming responses
+- Subscription required to chat — users are redirected to a pricing page if they have no active plan
+- Token balance shown in the header, deducted after every message
+- Amber warning banner when balance is running low
+- Input blocked and subscribe prompt shown when balance hits zero
+
+## Models
+
+Served via Fireworks AI:
+
+| Name | Model ID |
+|---|---|
+| DeepSeek V3.1 | `accounts/fireworks/models/deepseek-v3p1` |
+| GPT-OSS 20B | `accounts/fireworks/models/gpt-oss-20b` |
+| Kimi K2 Thinking | `accounts/fireworks/models/kimi-k2-thinking` |
+| Qwen3 VL 30B | `accounts/fireworks/models/qwen3-vl-30b-instruct` |
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS v4 |
+| Database | SQLite via Prisma 6 |
+| Auth | bcryptjs + JWT (jose) stored in httpOnly cookies |
+| AI | Fireworks AI via OpenAI-compatible SDK |
+| Billing | Dodo Payments — credit-based usage billing |
+
+## Project Structure
+
+```
+src/
+  app/
+    api/
+      auth/
+        signin/       # POST — email/password login
+        signup/       # POST — register new user
+      billing/
+        checkout/     # POST — creates Dodo checkout session
+        balance/      # GET  — returns current token balance
+      chat/           # POST — proxies to Fireworks AI, fires usage event after stream
+      webhooks/
+        dodo/         # POST — handles subscription.active, credit.* events from Dodo
+    auth/
+      signin/         # Sign in page
+      signup/         # Sign up page
+    pricing/          # Pricing page with subscribe button
+    page.tsx          # Chat page (protected)
+  components/
+    Chat.tsx          # Main chat UI with balance display and input blocking
+  lib/
+    auth.ts           # JWT helpers, cookie helpers, password hashing
+    db.ts             # Prisma singleton
+    dodo.ts           # Dodo Payments SDK singleton
+  proxy.ts            # Next.js 16 route protection (replaces middleware.ts)
+prisma/
+  schema.prisma       # User model with dodo_customer_id and balance_low fields
+```
 
 ## Getting Started
 
-First, run the development server:
+### 1. Clone the repo
+
+```bash
+git clone <repo-url>
+cd chat-ai
+npm install
+```
+
+### 2. Set up environment variables
+
+Create a `.env` file in the root:
+
+```env
+# Database
+DATABASE_URL="file:./prisma/dev.db"
+
+# Auth
+JWT_SECRET="your-secret-key"
+
+# Fireworks AI
+FIREWORKS_API_KEY="fw_..."
+
+# Dodo Payments
+DODO_API_KEY=""
+DODO_WEBHOOK_SECRET=""
+DODO_PRODUCT_ID=""
+DODO_CREDIT_ENTITLEMENT_ID=""
+
+# App
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+See `DODO_SETUP.md` for step-by-step instructions on getting the four Dodo values
+from the dashboard.
+
+### 3. Set up the database
+
+```bash
+npx prisma db push
+```
+
+### 4. Run the dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 5. Test billing locally
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+You need a public URL for Dodo to send webhooks to your local machine:
 
-## Learn More
+```bash
+ngrok http 3000
+```
 
-To learn more about Next.js, take a look at the following resources:
+Update the webhook endpoint URL in the Dodo dashboard to:
+```
+https://<your-ngrok-id>.ngrok-free.app/api/webhooks/dodo
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Use test card `4242 4242 4242 4242` exp `06/32` CVV `123` on the checkout page.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Billing Integration
 
-## Deploy on Vercel
+For a detailed breakdown of every file and code change involved in the billing
+integration, see `BILLING.md`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Notes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Chat history is stored in `localStorage` only — it is not persisted to the database
+- The Dodo SDK is initialised with `environment: 'test_mode'` — change to `live_mode` for production
+- Switch branches rule: whenever `prisma/schema.prisma` differs between branches,
+  run `npx prisma generate` after switching to avoid stale Prisma client errors
