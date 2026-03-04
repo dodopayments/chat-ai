@@ -4,16 +4,16 @@ This document covers every code change made to add credit-based billing to the c
 
 ## Overview
 
-Users must subscribe to chat. Each subscription grants 10,000 tokens per month.
-Every AI response deducts tokens equal to the token count returned by Fireworks AI.
-When tokens run out, the chat input is blocked until the user resubscribes.
+Users must subscribe to chat. Each subscription grants 10,000 credits per month.
+Every AI response deducts credits equal to the token count returned by Fireworks AI.
+When credits run out, the chat input is blocked until the user resubscribes.
 
 ## Environment Variables
 
 ```env
 DODO_API_KEY=""                  # Bearer token for Dodo API calls
 DODO_WEBHOOK_SECRET=""           # Signing secret to verify incoming webhooks
-DODO_PRODUCT_ID=""               # The prod_... ID of your subscription product
+DODO_PRODUCT_ID=""               # The prod_... ID of your usage-based billing product
 DODO_CREDIT_ENTITLEMENT_ID=""    # The cde_... ID of your credit entitlement
 NEXT_PUBLIC_APP_URL=""           # Your app's base URL (used for checkout return_url)
 ```
@@ -188,8 +188,8 @@ Dodo dashboard (`ai.tokens`). The `metadata.tokens` key must match the
 Three UI additions:
 
 **Balance pill** — calls `GET /api/billing/balance` on mount and after every
-message. Displays the token count in the header. If not subscribed, shows a
-"0 tokens — Subscribe" link.
+message. Displays the credit count in the header. If not subscribed, shows a
+"0 credits — Subscribe" link.
 
 **Low balance banner** — amber warning bar shown when `balance_low === true`.
 Prompts the user to visit the pricing page before they run out completely.

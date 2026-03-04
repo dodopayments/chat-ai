@@ -1,7 +1,7 @@
 # Chat AI
 
 A full-stack AI chat application with multi-model support and credit-based billing.
-Users subscribe to a monthly plan, receive a token allowance, and spend tokens as they chat.
+Users subscribe to a monthly plan, receive a credit allowance, and spend credits as they chat.
 Built as a reference implementation for integrating Dodo Payments usage-based billing into a Next.js app.
 
 ## What it does
@@ -47,7 +47,7 @@ src/
         signup/       # POST — register new user
       billing/
         checkout/     # POST — creates Dodo checkout session
-        balance/      # GET  — returns current token balance
+        balance/      # GET  — returns current credit balance
       chat/           # POST — proxies to Fireworks AI, fires usage event after stream
       webhooks/
         dodo/         # POST — handles subscription.active, credit.* events from Dodo
@@ -161,7 +161,7 @@ const MODELS = [
 ```
 
 The `id` is sent directly to the Fireworks API. The `name` is what appears in the
-dropdown. No other changes needed — the chat route, streaming, and token tracking
+dropdown. No other changes needed — the chat route, streaming, and credit tracking
 all work the same regardless of which model is selected.
 
 ## Notes
