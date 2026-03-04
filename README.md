@@ -138,6 +138,32 @@ Use test card `4242 4242 4242 4242` exp `06/32` CVV `123` on the checkout page.
 For a detailed breakdown of every file and code change involved in the billing
 integration, see `BILLING.md`.
 
+## Adding a New Model
+
+All models are served through Fireworks AI. Adding one takes a single file change.
+
+**1. Find the model ID on Fireworks**
+
+Go to fireworks.ai, browse the model library, and copy the full model ID.
+It will look like `accounts/fireworks/models/<model-name>`.
+
+**2. Add it to the `MODELS` array in `src/components/Chat.tsx`**
+
+```ts
+const MODELS = [
+  { id: 'accounts/fireworks/models/deepseek-v3p1', name: 'DeepSeek V3.1' },
+  { id: 'accounts/fireworks/models/gpt-oss-20b', name: 'GPT-OSS 20B' },
+  { id: 'accounts/fireworks/models/kimi-k2-thinking', name: 'Kimi K2 Thinking' },
+  { id: 'accounts/fireworks/models/qwen3-vl-30b-a3b-instruct', name: 'Qwen3 VL 30B' },
+  // add your model here
+  { id: 'accounts/fireworks/models/<your-model-id>', name: 'Your Model Name' },
+];
+```
+
+The `id` is sent directly to the Fireworks API. The `name` is what appears in the
+dropdown. No other changes needed — the chat route, streaming, and token tracking
+all work the same regardless of which model is selected.
+
 ## Notes
 
 - Chat history is stored in `localStorage` only — it is not persisted to the database
