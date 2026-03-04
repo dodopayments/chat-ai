@@ -5,7 +5,8 @@ const COOKIE_NAME = 'auth_token';
 const getSecret = () => new TextEncoder().encode(process.env.JWT_SECRET!);
 
 const AUTH_PAGES = ['/auth/signin', '/auth/signup'];
-const PUBLIC_API = ['/api/auth/signin', '/api/auth/signup'];
+const PUBLIC_PAGES = ['/pricing'];
+const PUBLIC_API = ['/api/auth/signin', '/api/auth/signup', '/api/webhooks/dodo'];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -22,9 +23,10 @@ export async function proxy(request: NextRequest) {
   }
 
   const isAuthPage = AUTH_PAGES.some((p) => pathname.startsWith(p));
+  const isPublicPage = PUBLIC_PAGES.some((p) => pathname.startsWith(p));
   const isPublicApi = PUBLIC_API.some((p) => pathname.startsWith(p));
 
-  if (!isAuthenticated && !isAuthPage && !isPublicApi) {
+  if (!isAuthenticated && !isAuthPage && !isPublicPage && !isPublicApi) {
     return NextResponse.redirect(new URL('/auth/signin', request.url));
   }
 

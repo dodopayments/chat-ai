@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 const MODELS = [
   { id: 'accounts/fireworks/models/deepseek-v3p1', name: 'DeepSeek V3.1' },
@@ -17,14 +18,28 @@ interface Message {
   content: string;
 }
 
+interface BalanceInfo {
+  balance: number;
+  balance_low: boolean;
+  subscribed: boolean;
+}
+
 export default function Chat({ userEmail }: { userEmail: string }) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
   const [isLoading, setIsLoading] = useState(false);
+  const [balanceInfo, setBalanceInfo] = useState<BalanceInfo | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const fetchBalance = () => {
+    fetch('/api/billing/balance')
+      .then((r) => r.json())
+      .then(setBalanceInfo)
+      .catch(() => {});
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -35,6 +50,7 @@ export default function Chat({ userEmail }: { userEmail: string }) {
         localStorage.removeItem(STORAGE_KEY);
       }
     }
+    fetchBalance();
   }, []);
 
   useEffect(() => {
@@ -45,10 +61,12 @@ export default function Chat({ userEmail }: { userEmail: string }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const isBlocked = balanceInfo !== null && (!balanceInfo.subscribed || balanceInfo.balance <= 0);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || isLoading) return;
+    if (!trimmed || isLoading || isBlocked) return;
 
     const userMessage: Message = { role: 'user', content: trimmed };
     const updatedMessages = [...messages, userMessage];
@@ -62,6 +80,14 @@ export default function Chat({ userEmail }: { userEmail: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: updatedMessages, model: selectedModel }),
       });
+
+      if (response.status === 402) {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: 'No active subscription. Visit /pricing to subscribe.' },
+        ]);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error('Request failed');
@@ -90,6 +116,7 @@ export default function Chat({ userEmail }: { userEmail: string }) {
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();
+      fetchBalance();
     }
   };
 
@@ -105,6 +132,9 @@ export default function Chat({ userEmail }: { userEmail: string }) {
 
   const showTypingDot =
     isLoading && (messages.length === 0 || messages[messages.length - 1]?.role === 'user');
+
+  const formattedBalance =
+    balanceInfo !== null ? balanceInfo.balance.toLocaleString() : null;
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -131,6 +161,22 @@ export default function Chat({ userEmail }: { userEmail: string }) {
           Clear
         </button>
 
+        {/* Balance pill */}
+        {balanceInfo !== null && (
+          balanceInfo.subscribed ? (
+            <span className="text-sm text-gray-400 hidden sm:block">
+              {formattedBalance} tokens
+            </span>
+          ) : (
+            <Link
+              href="/pricing"
+              className="text-sm text-blue-600 hover:underline hidden sm:block"
+            >
+              0 tokens — Subscribe
+            </Link>
+          )
+        )}
+
         <span className="text-sm text-gray-400 hidden sm:block">{userEmail}</span>
 
         <button
@@ -140,6 +186,17 @@ export default function Chat({ userEmail }: { userEmail: string }) {
           Sign out
         </button>
       </header>
+
+      {/* Low balance warning banner */}
+      {balanceInfo?.balance_low && balanceInfo.subscribed && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-sm text-amber-800 text-center shrink-0">
+          Your token balance is running low.{' '}
+          <Link href="/pricing" className="font-medium underline">
+            Upgrade on the pricing page
+          </Link>{' '}
+          to continue chatting without interruption.
+        </div>
+      )}
 
       {/* Messages */}
       <main className="flex-1 overflow-y-auto">
@@ -185,24 +242,34 @@ export default function Chat({ userEmail }: { userEmail: string }) {
 
       {/* Input */}
       <footer className="bg-white border-t border-gray-200 px-4 py-4 shrink-0">
-        <form onSubmit={handleSubmit} className="max-w-2xl mx-auto flex gap-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a message..."
-            disabled={isLoading}
-            className="flex-1 border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 bg-white"
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Send
-          </button>
-        </form>
+        <div className="max-w-2xl mx-auto">
+          {isBlocked && (
+            <div className="mb-3 text-center text-sm text-gray-500">
+              No tokens remaining.{' '}
+              <Link href="/pricing" className="text-blue-600 hover:underline font-medium">
+                Subscribe to continue
+              </Link>
+            </div>
+          )}
+          <form onSubmit={handleSubmit} className="flex gap-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={isBlocked ? 'Subscribe to send messages' : 'Type a message...'}
+              disabled={isLoading || isBlocked}
+              className="flex-1 border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 bg-white"
+            />
+            <button
+              type="submit"
+              disabled={isLoading || !input.trim() || isBlocked}
+              className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Send
+            </button>
+          </form>
+        </div>
       </footer>
     </div>
   );

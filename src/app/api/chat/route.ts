@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { verifyToken, COOKIE_NAME } from '@/lib/auth';
+import { prisma } from '@/lib/db';
+import { dodo } from '@/lib/dodo';
 
 const fireworks = new OpenAI({
   apiKey: process.env.FIREWORKS_API_KEY,
@@ -18,6 +20,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const user = await prisma.user.findUnique({ where: { id: session.userId } });
+  if (!user?.dodo_customer_id) {
+    return NextResponse.json({ error: 'subscription_required' }, { status: 402 });
+  }
+
   const { messages, model } = await request.json();
 
   if (!messages || !model) {
@@ -30,20 +37,41 @@ export async function POST(request: NextRequest) {
     model,
     messages,
     stream: true,
+    stream_options: { include_usage: true },
   });
 
+  const dodoCustomerId = user.dodo_customer_id;
   const encoder = new TextEncoder();
   const readable = new ReadableStream({
     async start(controller) {
+      let totalTokens = 0;
       try {
         for await (const chunk of stream) {
           const content = chunk.choices[0]?.delta?.content;
           if (content) {
             controller.enqueue(encoder.encode(content));
           }
+          if (chunk.usage?.total_tokens) {
+            totalTokens = chunk.usage.total_tokens;
+          }
         }
       } finally {
         controller.close();
+        if (totalTokens > 0) {
+          dodo.usageEvents
+            .ingest({
+              events: [
+                {
+                  event_id: `chat_${session.userId}_${Date.now()}`,
+                  customer_id: dodoCustomerId,
+                  event_name: 'ai.tokens',
+                  timestamp: new Date().toISOString(),
+                  metadata: { tokens: String(totalTokens), model },
+                },
+              ],
+            })
+            .catch((e) => console.error('[dodo] usage ingest failed', e));
+        }
       }
     },
   });
