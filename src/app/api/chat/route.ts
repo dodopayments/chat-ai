@@ -58,19 +58,17 @@ export async function POST(request: NextRequest) {
       } finally {
         controller.close();
         if (totalTokens > 0) {
-          dodo.usageEvents
-            .ingest({
-              events: [
-                {
-                  event_id: `chat_${session.userId}_${Date.now()}`,
-                  customer_id: dodoCustomerId,
-                  event_name: 'ai.tokens',
-                  timestamp: new Date().toISOString(),
-                  metadata: { tokens: String(totalTokens), model },
-                },
-              ],
+          const entitlementId = process.env.DODO_CREDIT_ENTITLEMENT_ID!;
+          dodo.creditEntitlements.balances
+            .createLedgerEntry(dodoCustomerId, {
+              credit_entitlement_id: entitlementId,
+              entry_type: 'debit',
+              amount: String(totalTokens),
+              reason: `chat message — model: ${model}`,
+              idempotency_key: `chat_${session.userId}_${Date.now()}`,
             })
-            .catch((e) => console.error('[dodo] usage ingest failed', e));
+            .then((r) => console.log('[dodo] deducted', totalTokens, 'tokens, balance after:', r.balance_after))
+            .catch((e) => console.error('[dodo] deduct failed', e));
         }
       }
     },
