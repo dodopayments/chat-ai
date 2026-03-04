@@ -165,14 +165,14 @@ export default function Chat({ userEmail }: { userEmail: string }) {
         {balanceInfo !== null && (
           balanceInfo.subscribed ? (
             <span className="text-sm text-gray-400 hidden sm:block">
-              {formattedBalance} tokens
+              {formattedBalance} credits
             </span>
           ) : (
             <Link
               href="/pricing"
               className="text-sm text-blue-600 hover:underline hidden sm:block"
             >
-              0 tokens — Subscribe
+              0 credits — Subscribe
             </Link>
           )
         )}
@@ -245,7 +245,7 @@ export default function Chat({ userEmail }: { userEmail: string }) {
         <div className="max-w-2xl mx-auto">
           {isBlocked && (
             <div className="mb-3 text-center text-sm text-gray-500">
-              No tokens remaining.{' '}
+              No credits remaining.{' '}
               <Link href="/pricing" className="text-blue-600 hover:underline font-medium">
                 Subscribe to continue
               </Link>

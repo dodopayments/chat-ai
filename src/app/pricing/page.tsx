@@ -55,7 +55,7 @@ export default function Pricing() {
           </div>
 
           <div className="px-6 py-5 space-y-3">
-            <Feature text="10,000 AI tokens per month" />
+            <Feature text="10,000 AI credits per month" />
             <Feature text="DeepSeek V3.1, GPT-OSS, Kimi K2, Qwen3" />
             <Feature text="Streaming responses" />
             <Feature text="Tokens auto-deducted per message" />
