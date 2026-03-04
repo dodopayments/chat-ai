@@ -1,7 +1,7 @@
 # Chat AI
 
 A full-stack AI chat application with multi-model support and credit-based billing.
-Users subscribe to a monthly plan, receive a token allowance, and spend tokens as they chat.
+Users subscribe to a monthly plan, receive a credit allowance, and spend credits as they chat.
 Built as a reference implementation for integrating Dodo Payments usage-based billing into a Next.js app.
 
 ## What it does
